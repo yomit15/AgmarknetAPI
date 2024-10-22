@@ -2,6 +2,7 @@ attrs==23.1.0
 beautifulsoup4==4.12.2
 blinker==1.7.0
 certifi==2023.7.22
+flask-cors
 cffi==1.16.0
 charset-normalizer==3.3.2
 click==8.1.7
