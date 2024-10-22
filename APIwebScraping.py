@@ -1,97 +1,109 @@
-print("Running APIwebSrapping.py")
-
-from flask_cors import CORS
 from flask import Flask, request, jsonify
 import json
 import time
-import requests
-from bs4 import BeautifulSoup
+from datetime import datetime, timedelta
 from selenium import webdriver
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
-from datetime import datetime, timedelta
 from selenium.webdriver.support import expected_conditions as EC
-import time
+from bs4 import BeautifulSoup
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 
 app = Flask(__name__)
-CORS(app)
+
 
 def script(state, commodity, market):
     # URL of the website with the dropdown fields
     initial_url = "https://agmarknet.gov.in/SearchCmmMkt.aspx"
 
-    driver = webdriver.Chrome()
-    driver.get(initial_url)
+    # Set up headless mode for Chrome
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")  # Run in headless mode
+    chrome_options.add_argument(
+        "--no-sandbox")  # Bypass OS security model (required for running in some Linux environments)
+    chrome_options.add_argument("--disable-dev-shm-usage")  # Overcome limited resource problems
 
-    print("Commodity")
-    dropdown = Select(driver.find_element("id", 'ddlCommodity'))
-    dropdown.select_by_visible_text(commodity)
+    # Initialize the Chrome driver
+    driver = webdriver.Chrome(options=chrome_options)
 
-    print("State")
-    dropdown = Select(driver.find_element("id", 'ddlState'))
-    dropdown.select_by_visible_text(state)
+    try:
+        # Open the initial URL
+        driver.get(initial_url)
 
-    print("Date")
-    # Calculate the date 7 days ago from today
-    today = datetime.now()
-    desired_date = today - timedelta(days=7)
-    date_input = driver.find_element(By.ID, "txtDate")
-    date_input.clear()
-    date_input.send_keys(desired_date.strftime('%d-%b-%Y'))
+        print("Commodity")
+        dropdown = Select(driver.find_element("id", 'ddlCommodity'))
+        dropdown.select_by_visible_text(commodity)
 
-    print("Click")
-    button = driver.find_element("id", 'btnGo')
-    button.click()
+        print("State")
+        dropdown = Select(driver.find_element("id", 'ddlState'))
+        dropdown.select_by_visible_text(state)
 
-    time.sleep(3)
+        print("Date")
+        # Calculate the date 7 days ago from today
+        today = datetime.now()
+        desired_date = today - timedelta(days=7)
+        date_input = driver.find_element(By.ID, "txtDate")
+        date_input.clear()
+        date_input.send_keys(desired_date.strftime('%d-%b-%Y'))
 
-    print("Market")
-    dropdown = Select(driver.find_element("id", 'ddlMarket'))
-    dropdown.select_by_visible_text(market)
+        print("Click")
+        button = driver.find_element("id", 'btnGo')
+        button.click()
 
-    print("Click")
-    button = driver.find_element("id", 'btnGo')
-    button.click()
+        # Wait for the market dropdown to become visible
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.ID, 'ddlMarket'))
+        )
 
-    time.sleep(1)
+        print("Market")
+        dropdown = Select(driver.find_element("id", 'ddlMarket'))
+        dropdown.select_by_visible_text(market)
 
-    driver.implicitly_wait(10)
-    from selenium.webdriver.support.ui import WebDriverWait
-    from selenium.webdriver.support import expected_conditions as EC
+        print("Click")
+        button = driver.find_element("id", 'btnGo')
+        button.click()
 
-    # Wait for the table to be present
-    table = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.ID, 'cphBody_GridPriceData'))
-    )
-    soup = BeautifulSoup(driver.page_source, 'html.parser')
+        # Wait for the table to load
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.ID, 'cphBody_GridPriceData'))
+        )
 
-    data_list = []
-    # Iterate over each  row
-    for row in soup.find_all("tr"):
-        data_list.append(row.text.replace("\n", "_").replace("  ", "").split("__"))
+        soup = BeautifulSoup(driver.page_source, 'html.parser')
 
-    jsonList = []
-    for i in data_list[4:len(data_list) - 1]:
-        d = {}
-        d["S.No"] = i[1]
-        d["City"] = i[2]
-        d["Commodity"] = i[4]
-        d["Min Prize"] = i[7]
-        d["Max Prize"] = i[8]
-        d["Model Prize"] = i[9]
-        d["Date"] = i[10]
-        jsonList.append(d)
+        # Extract data from the table
+        data_list = []
+        for row in soup.find_all("tr"):
+            data_list.append(row.text.replace("\n", "_").replace("  ", "").split("__"))
 
-    driver.quit()
+        jsonList = []
+        for i in data_list[4:len(data_list) - 1]:
+            d = {}
+            d["S.No"] = i[1]
+            d["City"] = i[2]
+            d["Commodity"] = i[4]
+            d["Min Prize"] = i[7]
+            d["Max Prize"] = i[8]
+            d["Model Prize"] = i[9]
+            d["Date"] = i[10]
+            jsonList.append(d)
+
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        jsonList = []
+
+    finally:
+        driver.quit()
+
     return jsonList
 
-app = Flask(__name__)
 
 @app.route('/', methods=['GET'])
 def homePage():
     dataSet = {"Page": "Home Page navigate to request page", "Time Stamp": time.time()}
     return jsonify(dataSet)
+
 
 @app.route('/request', methods=['GET'])
 def requestPage():
@@ -107,6 +119,7 @@ def requestPage():
         return json_data
     except Exception as e:
         return jsonify({"error": str(e)})
+
 
 if __name__ == '__main__':
     app.run()
