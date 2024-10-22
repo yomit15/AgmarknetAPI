@@ -14,6 +14,7 @@ from selenium.webdriver.support import expected_conditions as EC
 import time
 
 app = Flask(__name__)
+CORS(app)
 
 def script(state, commodity, market):
     # URL of the website with the dropdown fields
