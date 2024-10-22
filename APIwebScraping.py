@@ -11,6 +11,8 @@ from datetime import datetime, timedelta
 from selenium.webdriver.support import expected_conditions as EC
 import time
 
+app = Flask(__name__)
+
 def script(state, commodity, market):
     # URL of the website with the dropdown fields
     initial_url = "https://agmarknet.gov.in/SearchCmmMkt.aspx"
