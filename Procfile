@@ -1,1 +1,1 @@
-web: gunicorn APIwebScrapping:app
+web: uvicorn APIwebScraping:app
